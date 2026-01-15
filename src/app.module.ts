@@ -13,16 +13,14 @@ import { FornecedorModule } from './fornecedor/fornecedor.module';
   imports: [
     TypeOrmModule.forRoot({
       type: 'postgres', 
-      host: 'db.cbpfbcatmqkfspwwfeaw.supabase.co',
-      port: 5432,
-      username: 'postgres',
-      password: 'cagaverde123',
+      url: process.env.DATABASE_URL,
       database: 'postgres',
       entities: [__dirname + '/**/*.entity{.ts,.js}'],
       autoLoadEntities: true,
       ssl: {
         rejectUnauthorized: false,
       },
+      synchronize: false,
     }),
     ProdutoModule,
     EstoqueModule,
