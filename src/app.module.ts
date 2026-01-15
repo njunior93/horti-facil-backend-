@@ -21,6 +21,9 @@ import { FornecedorModule } from './fornecedor/fornecedor.module';
         rejectUnauthorized: false,
       },
       synchronize: false,
+      extra: {
+        family: 4,
+      },
     }),
     ProdutoModule,
     EstoqueModule,
