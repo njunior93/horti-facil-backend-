@@ -1,4 +1,4 @@
 export enum TipoMov {
   ENTRADA = 'entrada',
-  SAIDA = 'saida',
+  SAIDA = 'saida'
 }
