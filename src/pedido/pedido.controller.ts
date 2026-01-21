@@ -77,7 +77,9 @@ export class PedidoController {
 
     const usuarioId = user.id;
 
-    return this.pedidoService.cancelarPedido(pedidoId, usuarioId, body.estoqueId, token);
+    const nomeUsuario = user.user_metadata?.full_name || user.user_metadata?.name;
+
+    return this.pedidoService.cancelarPedido(pedidoId, usuarioId, nomeUsuario, body.estoqueId, token);
   }
 
   @Delete('/excluir-pedido')

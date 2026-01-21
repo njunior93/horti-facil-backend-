@@ -104,7 +104,7 @@ export class EstoqueService {
     const supa = getSupabaseForUser (accessToken)
     const { data, error } = await supa
       .from('produto_mov')
-      .select('qtdMov, tipoMov, tipoSaida, tipoEntrada, dataMov, nome, saldo_anterior, saldo_atual, produto(nome)')
+      .select('qtdMov, tipoMov, tipoSaida, tipoEntrada, dataMov, nome, saldo_anterior, saldo_atual, pedido_compra_id ,produto(nome)')
       .eq('user_id', usuarioId)
       .eq('estoque_id', estoqueId);
 

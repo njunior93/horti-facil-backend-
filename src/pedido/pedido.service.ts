@@ -12,10 +12,13 @@ import { EmailService } from 'src/email/email.service';
 export class PedidoService {
   private readonly logger = new Logger(PedidoService.name);
   constructor(
+    
     @InjectRepository(Pedido) private readonly pedidoRepository: Repository<Pedido>, private emailService: EmailService,
 
     @InjectRepository(PedidoItem) private readonly pedidoItemRepository: Repository<PedidoItem>,
   ) {}
+
+    
 
   async criarPedido(criarPedidoDto: CriarPedidoDto, usuarioId: string, nomeUsuario: string): Promise<Pedido> {
     const itensPedidos = criarPedidoDto.itens.map(item => ({
@@ -108,10 +111,47 @@ export class PedidoService {
     return data;
   }
 
-  async cancelarPedido(pedidoId:number, usuarioId:string, estoqueId: number, accessToken:string): Promise<Pedido> {
+  async cancelarPedido(pedidoId:number, usuarioId:string,  nomeUsuario: string, estoqueId: number, accessToken:string): Promise<Pedido> {
     const supa = getSupabaseForUser (accessToken);
 
-    const { error: erroMov } = await supa.rpc('cancelar_pedido_mov', {
+    const {data: pedidoAntesCancelar, error: errorBuscaPedido} = await supa
+    .from('pedido')
+    .select(`
+      id,
+      data_criacao,
+      data_cancelamento,
+      status,
+      fornecedor:fornecedor_id (
+        id,
+        nome,
+        email,
+        noti_email
+      ),
+      itens:pedido_item(
+        id,
+        qtd_solicitado,
+        produto:produto_id(
+          id,
+          nome,
+          uniMedida
+        )
+      )
+    `)
+    .eq('user_id', usuarioId)
+    .eq('id', pedidoId)
+    .eq('estoque_id', estoqueId)
+    .single();
+
+    if(errorBuscaPedido || !pedidoAntesCancelar){
+      throw new BadRequestException(`Erro ao buscar o pedido para cancelamento. ${errorBuscaPedido?.message}`);
+    } 
+
+
+    if(pedidoAntesCancelar.status === 'cancelado'){
+      return pedidoAntesCancelar  as unknown as Pedido;
+    }
+
+    const { data: pedidoSendoCancelado, error: erroMov } = await supa.rpc('cancelar_pedido_mov', {
       p_pedido_id: pedidoId,
       usuario_id: usuarioId,
       id_estoque: estoqueId
@@ -121,7 +161,37 @@ export class PedidoService {
         throw new BadRequestException(`Erro ao cancelar pedido: ${erroMov.message}`);
     }
 
-    const { data, error: cancelaPedido } = await supa
+    const fornecedor = Array.isArray(pedidoAntesCancelar.fornecedor)? pedidoAntesCancelar.fornecedor[0]: pedidoAntesCancelar.fornecedor;
+
+    if(fornecedor?.noti_email && fornecedor?.email){
+      try{
+        await this.emailService.enviarEmail(fornecedor.email,
+        `Cancelando o pedido de compra. Cliente: ${nomeUsuario}`,
+        `
+          <p>Olá <b>${fornecedor.nome}</b>,</p>
+          <p>Cancelando o pedido de compra. Cliente: ${nomeUsuario}.</p>
+          <p><b>Número do pedido:</b> ${pedidoAntesCancelar.id} </p>
+
+          <p><b>Itens:</b></p> 
+            <ul> 
+              ${pedidoAntesCancelar?.itens.map((produto) => {
+                const prod = Array.isArray(produto.produto) ? produto.produto[0] : produto.produto;
+                return`<li> 
+                <b>Produto</b>: ${prod.nome} — 
+                <b>Unidade de Medida:</b> ${prod.uniMedida} — 
+                <b>Quantidade Solicitada:</b> ${produto.qtd_solicitado}</li>`
+              }).join("")}
+            </ul>
+
+          <p>Não responda este email</p>
+        `,
+        )
+      }catch(error){
+        console.error('Erro ao enviar email:', error.message)
+      }  
+    }
+
+    const { data: pedidoCancelado, error: cancelaPedido } = await supa
       .from('pedido')
       .update({ status: 'cancelado'})
       .eq('id', pedidoId)
@@ -134,7 +204,7 @@ export class PedidoService {
         throw new BadRequestException(`Erro ao cancelar pedido: ${cancelaPedido.message}`);
       }
 
-    return data;
+    return pedidoCancelado;
 
   }
 
