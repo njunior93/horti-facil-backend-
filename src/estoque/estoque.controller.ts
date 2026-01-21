@@ -108,7 +108,7 @@ export class EstoqueController {
     return listaMovimentacoes;
   }
 
-  @Patch('/atualizar-produto/:id')
+  @Patch("/atualizar-produto/:id")
   async atualizarProduto(@Req() req: Request, @Param('id') produtoId: number, @Body() body: {qtdMov: number, tipoMov: 'entrada' | 'saida', estoqueId: number, tipoSaida?: string, tipoEntrada?: string, nome: string, estoque_prod_mov:number}) {
     const antesToken = req.headers['authorization'];
 
