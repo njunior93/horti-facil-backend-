@@ -7,19 +7,14 @@ import { ServidorService } from './servidor.service';
 export class ServidorController {
   constructor(private readonly servidorService: ServidorService) {}
 
-  @Get('api-status')
-  apistatus() {
-    return { api: 'ok' };
+  @Get('health')
+  async health(){
+  try{
+    await this.servidorService.checarBanco();
+    return { status: 'ok' };
+  } catch {
+    return { status: 'error' };
   }
-
-  @Get('db-status')
-  async dbstatus(){
-    try{
-      await this.servidorService.checarBanco();
-      return { db: 'ok' };
-    } catch {
-      return {db : 'error'};
-    }
-  }
+}
 }
 
