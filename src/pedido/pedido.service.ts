@@ -47,34 +47,29 @@ export class PedidoService {
         'itens.produto'
       ],
     });
- 
-    
-    const fornecedor = pedidoComFornecedor?.fornecedor;
+
+    if (!pedidoComFornecedor) {
+      throw new NotFoundException(`Pedido ${pedidoSalvo.id} não encontrado`);
+    }
+
+    const fornecedor = pedidoComFornecedor.fornecedor;
 
     if(fornecedor?.noti_email && fornecedor.email){
-      try{
-        await this.emailService.enviarEmail(fornecedor.email,
+      this.emailService.enviarEmail(fornecedor.email,
         `Novo pedido de compra. Cliente: ${nomeUsuario}`,
         `
           <p>Olá <b>${fornecedor.nome}</b>,</p>
           <p>Um novo pedido foi gerado por ${nomeUsuario}.</p>
           <p><b>Número do pedido:</b> ${pedido.id} </p>
           <p><b>Data de Criação e Hora:</b> ${new Date(pedido.data_criacao).toLocaleDateString()} - ${new Date(pedido.data_criacao).toLocaleTimeString()}</p>
-          <p><b>Itens:</b></p> 
-            <ul> 
-              ${pedidoComFornecedor?.itens.map(produto => `<li> <b>Produto</b>: ${produto.produto.nome} — <b>Unidade de Medida:</b> ${produto.produto.uniMedida} — <b>Quantidade Solicitada:</b> ${produto.qtd_solicitado}</li>`).join("")}
+          <p><b>Itens:</b></p>
+            <ul>
+              ${pedidoComFornecedor.itens.map(produto => `<li> <b>Produto</b>: ${produto.produto.nome} — <b>Unidade de Medida:</b> ${produto.produto.uniMedida} — <b>Quantidade Solicitada:</b> ${produto.qtd_solicitado}</li>`).join("")}
             </ul>
 
           <p>Não responda este email</p>
         `,
-        )
-      }catch(error){
-        console.error('Erro ao enviar email:', error.message)
-      }  
-    }
-
-    if (!pedidoComFornecedor) {
-      throw new NotFoundException(`Pedido ${pedidoSalvo.id} não encontrado`);
+      ).catch(error => console.error('Erro ao enviar email:', error.message));
     }
 
     return pedidoComFornecedor;
@@ -151,7 +146,7 @@ export class PedidoService {
       return pedidoAntesCancelar  as unknown as Pedido;
     }
 
-    const { data: pedidoSendoCancelado, error: erroMov } = await supa.rpc('cancelar_pedido_mov', {
+    const { error: erroMov } = await supa.rpc('cancelar_pedido_mov', {
       p_pedido_id: pedidoId,
       usuario_id: usuarioId,
       id_estoque: estoqueId
@@ -159,36 +154,6 @@ export class PedidoService {
 
     if (erroMov) {
         throw new BadRequestException(`Erro ao cancelar pedido: ${erroMov.message}`);
-    }
-
-    const fornecedor = Array.isArray(pedidoAntesCancelar.fornecedor)? pedidoAntesCancelar.fornecedor[0]: pedidoAntesCancelar.fornecedor;
-
-    if(fornecedor?.noti_email && fornecedor?.email){
-      try{
-        await this.emailService.enviarEmail(fornecedor.email,
-        `Cancelando o pedido de compra. Cliente: ${nomeUsuario}`,
-        `
-          <p>Olá <b>${fornecedor.nome}</b>,</p>
-          <p>Cancelando o pedido de compra. Cliente: ${nomeUsuario}.</p>
-          <p><b>Número do pedido:</b> ${pedidoAntesCancelar.id} </p>
-
-          <p><b>Itens:</b></p> 
-            <ul> 
-              ${pedidoAntesCancelar?.itens.map((produto) => {
-                const prod = Array.isArray(produto.produto) ? produto.produto[0] : produto.produto;
-                return`<li> 
-                <b>Produto</b>: ${prod.nome} — 
-                <b>Unidade de Medida:</b> ${prod.uniMedida} — 
-                <b>Quantidade Solicitada:</b> ${produto.qtd_solicitado}</li>`
-              }).join("")}
-            </ul>
-
-          <p>Não responda este email</p>
-        `,
-        )
-      }catch(error){
-        console.error('Erro ao enviar email:', error.message)
-      }  
     }
 
     const { data: pedidoCancelado, error: cancelaPedido } = await supa
@@ -200,9 +165,35 @@ export class PedidoService {
       .select()
       .single();
 
-      if (cancelaPedido) {
-        throw new BadRequestException(`Erro ao cancelar pedido: ${cancelaPedido.message}`);
-      }
+    if (cancelaPedido) {
+      throw new BadRequestException(`Erro ao cancelar pedido: ${cancelaPedido.message}`);
+    }
+
+    const fornecedor = Array.isArray(pedidoAntesCancelar.fornecedor)? pedidoAntesCancelar.fornecedor[0]: pedidoAntesCancelar.fornecedor;
+
+    if(fornecedor?.noti_email && fornecedor?.email){
+      this.emailService.enviarEmail(fornecedor.email,
+        `Cancelando o pedido de compra. Cliente: ${nomeUsuario}`,
+        `
+          <p>Olá <b>${fornecedor.nome}</b>,</p>
+          <p>Cancelando o pedido de compra. Cliente: ${nomeUsuario}.</p>
+          <p><b>Número do pedido:</b> ${pedidoAntesCancelar.id} </p>
+
+          <p><b>Itens:</b></p>
+            <ul>
+              ${pedidoAntesCancelar?.itens.map((produto) => {
+                const prod = Array.isArray(produto.produto) ? produto.produto[0] : produto.produto;
+                return`<li>
+                <b>Produto</b>: ${prod.nome} —
+                <b>Unidade de Medida:</b> ${prod.uniMedida} —
+                <b>Quantidade Solicitada:</b> ${produto.qtd_solicitado}</li>`
+              }).join("")}
+            </ul>
+
+          <p>Não responda este email</p>
+        `,
+      ).catch(error => console.error('Erro ao enviar email:', error.message));
+    }
 
     return pedidoCancelado;
 
